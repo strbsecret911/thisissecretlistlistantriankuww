@@ -7,7 +7,7 @@ import {
   doc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ✅ Firebase project BARU kamu: listorderrr (CDN)
+// ✅ Firebase project: listorderrr (CDN)
 const firebaseConfig = {
   apiKey: "AIzaSyDprHL_l6VoXJbNgUYjYfo7iwgg06NuqMQ",
   authDomain: "listorderrr.firebaseapp.com",
@@ -59,6 +59,7 @@ function stopOrdersListener(){
 
 function renderPublic(){
   stopOrdersListener();
+
   view.innerHTML = `
     <div class="tableWrap">
       <table>
@@ -79,14 +80,18 @@ function renderPublic(){
 
   const tbody = document.getElementById("tbody");
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
+
   unsubscribeOrders = onSnapshot(q, (snap)=>{
     const rows = [];
-    snap.forEach((d, idx)=>{
+    let no = 1;
+
+    snap.forEach((d)=>{
       const o = d.data();
-      const s = STATUS.find(x=>x.v===o.status) || {label:o.status, cls:""};
+      const s = STATUS.find(x=>x.v===o.status) || {label:(o.status||"-"), cls:""};
+
       rows.push(`
         <tr>
-          <td>${idx+1}</td>
+          <td>${no}</td>
           <td>${fmtTime(o.createdAt)}</td>
           <td>${o.robuxType || "-"}</td>
           <td>${o.amountLabel || "-"}</td>
@@ -94,8 +99,13 @@ function renderPublic(){
           <td>${fmtTime(o.completedAt)}</td>
         </tr>
       `);
+
+      no++;
     });
-    tbody.innerHTML = rows.length ? rows.join("") : `<tr><td colspan="6" class="small">Belum ada order.</td></tr>`;
+
+    tbody.innerHTML = rows.length
+      ? rows.join("")
+      : `<tr><td colspan="6" class="small">Belum ada order.</td></tr>`;
   }, (err)=>alert("Gagal load orders: " + (err?.message || err)));
 }
 
@@ -192,6 +202,7 @@ function renderAdmin(){
     try {
       btnAdd.disabled = true;
       btnAdd.textContent = "Adding...";
+
       await addDoc(collection(db,"orders"), {
         createdAt: serverTimestamp(),
         robuxType: selType.value,
@@ -199,6 +210,7 @@ function renderAdmin(){
         status: selStatus.value,
         completedAt: serverTimestamp()
       });
+
       btnAdd.textContent = "Add";
       btnAdd.disabled = false;
     } catch (e) {
@@ -210,14 +222,18 @@ function renderAdmin(){
 
   const tbody = document.getElementById("tbody");
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
+
   unsubscribeOrders = onSnapshot(q, (snap)=>{
     const rows = [];
-    snap.forEach((d, idx)=>{
+    let no = 1;
+
+    snap.forEach((d)=>{
       const o = d.data();
-      const s = STATUS.find(x=>x.v===o.status) || {label:o.status, cls:""};
+      const s = STATUS.find(x=>x.v===o.status) || {label:(o.status||"-"), cls:""};
+
       rows.push(`
         <tr>
-          <td>${idx+1}</td>
+          <td>${no}</td>
           <td>${fmtTime(o.createdAt)}</td>
           <td>${o.robuxType || "-"}</td>
           <td>${o.amountLabel || "-"}</td>
@@ -232,8 +248,13 @@ function renderAdmin(){
           </td>
         </tr>
       `);
+
+      no++;
     });
-    tbody.innerHTML = rows.length ? rows.join("") : `<tr><td colspan="7" class="small">Belum ada order.</td></tr>`;
+
+    tbody.innerHTML = rows.length
+      ? rows.join("")
+      : `<tr><td colspan="7" class="small">Belum ada order.</td></tr>`;
 
     tbody.querySelectorAll("button[data-id]").forEach(btn=>{
       btn.onclick = async ()=>{
