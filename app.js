@@ -24,17 +24,6 @@ const PAGE_SIZE = 10;
 let publicPage = 0;
 let adminPage = 0;
 
-// compact mode
-const COMPACT_KEY = "tpgr_compact";
-function setCompact(isOn) {
-  document.body.classList.toggle("compact", !!isOn);
-  localStorage.setItem(COMPACT_KEY, isOn ? "1" : "0");
-}
-function getCompact() {
-  return localStorage.getItem(COMPACT_KEY) === "1";
-}
-setCompact(getCompact());
-
 const ROBUX_OPTIONS = {
   REGULER: ["80 Robux","160 Robux","240 Robux","320 Robux","400 Robux","480 Robux","560 Robux","640 Robux","720 Robux","800 Robux","1.700 Robux","2.100 Robux","3.400 Robux","4.500 Robux","10.000 Robux","22.500 Robux"],
   BASIC: ["500 Robux","580 Robux","660 Robux","740 Robux","820 Robux","1.000 Robux","1.500 Robux","2.000 Robux","2.500 Robux","3.000 Robux","3.500 Robux","4.000 Robux","5.000 Robux","6.000 Robux","15.000 Robux"],
@@ -81,16 +70,6 @@ function makePager(total, page, pageSize){
   return { maxPage, page: safePage, start, end };
 }
 
-function renderCompactToggle(placeId){
-  const checked = getCompact() ? "checked" : "";
-  return `
-    <label class="row" style="gap:8px; align-items:center; margin: 6px 0 10px;">
-      <input type="checkbox" id="${placeId}" ${checked} />
-      <span class="small">Compact mode</span>
-    </label>
-  `;
-}
-
 /* =========================
    PUBLIC
 ========================= */
@@ -98,11 +77,6 @@ function renderPublic(){
   stopOrdersListener();
 
   view.innerHTML = `
-    <div class="row" style="justify-content:space-between; align-items:center;">
-      <div class="small">Geser tabel untuk lihat semua kolom</div>
-      ${renderCompactToggle("compactTogglePublic")}
-    </div>
-
     <div class="tableWrap">
       <table>
         <thead>
@@ -126,9 +100,6 @@ function renderPublic(){
     </div>
   `;
 
-  const compactToggle = document.getElementById("compactTogglePublic");
-  compactToggle.onchange = () => setCompact(compactToggle.checked);
-
   const tbody = document.getElementById("tbody");
   const prevBtn = document.getElementById("prevBtn");
   const nextBtn = document.getElementById("nextBtn");
@@ -150,6 +121,7 @@ function renderPublic(){
     pageDocs.forEach((d, idx)=>{
       const o = d.data();
       const s = STATUS.find(x=>x.v===o.status) || {label:(o.status||"-"), cls:""};
+      // nomor terbalik: atas = total, bawah = 1
       const nomor = total - pager.start - idx;
 
       rows.push(`
@@ -168,6 +140,7 @@ function renderPublic(){
       ? rows.join("")
       : `<tr><td colspan="6" class="small">Belum ada order.</td></tr>`;
 
+    // pager UI
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     pageInfo.textContent = `Page ${publicPage + 1} / ${totalPages}`;
 
@@ -223,14 +196,14 @@ async function adminLogout(){
 function renderAdmin(){
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
+  // non-admin yang akses /admin -> balik publik
   if (!isAdmin) { location.hash = "#/"; return; }
 
   stopOrdersListener();
 
   view.innerHTML = `
-    <div class="row" style="justify-content:space-between; align-items:center; margin: 6px 0 12px;">
+    <div class="row" style="justify-content:flex-end; margin: 6px 0 12px;">
       <button class="secondary" id="btnLogout">Logout</button>
-      ${renderCompactToggle("compactToggleAdmin")}
     </div>
 
     <div class="card" style="margin: 10px 0 14px;">
@@ -280,9 +253,6 @@ function renderAdmin(){
   `;
 
   document.getElementById("btnLogout").onclick = adminLogout;
-
-  const compactToggle = document.getElementById("compactToggleAdmin");
-  compactToggle.onchange = () => setCompact(compactToggle.checked);
 
   const selType = document.getElementById("selType");
   const selAmount = document.getElementById("selAmount");
@@ -379,6 +349,7 @@ function renderAdmin(){
       };
     });
 
+    // pager UI
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     pageInfoA.textContent = `Page ${adminPage + 1} / ${totalPages}`;
 
@@ -421,7 +392,7 @@ onAuthStateChanged(auth, (u)=>{
 window.addEventListener("hashchange", async ()=>{
   const hash = location.hash || "#/";
   if (hash.startsWith("#/admin") && currentUser?.email !== ADMIN_EMAIL) {
-    await adminLogin();
+    await adminLogin(); // auto popup login kalau kamu buka /admin
   } else {
     route();
   }
