@@ -19,6 +19,11 @@ const firebaseConfig = {
 
 const ADMIN_EMAIL = "dinijanuari23@gmail.com";
 
+// pagination
+const PAGE_SIZE = 10;
+let publicPage = 0;
+let adminPage = 0;
+
 const ROBUX_OPTIONS = {
   REGULER: ["80 Robux","160 Robux","240 Robux","320 Robux","400 Robux","480 Robux","560 Robux","640 Robux","720 Robux","800 Robux","1.700 Robux","2.100 Robux","3.400 Robux","4.500 Robux","10.000 Robux","22.500 Robux"],
   BASIC: ["500 Robux","580 Robux","660 Robux","740 Robux","820 Robux","1.000 Robux","1.500 Robux","2.000 Robux","2.500 Robux","3.000 Robux","3.500 Robux","4.000 Robux","5.000 Robux","6.000 Robux","15.000 Robux"],
@@ -57,6 +62,17 @@ function stopOrdersListener(){
   if (unsubscribeOrders) { unsubscribeOrders(); unsubscribeOrders = null; }
 }
 
+function makePager(total, page, pageSize){
+  const maxPage = Math.max(0, Math.ceil(total / pageSize) - 1);
+  const safePage = Math.min(Math.max(page, 0), maxPage);
+  const start = safePage * pageSize;
+  const end = start + pageSize;
+  return { maxPage, page: safePage, start, end };
+}
+
+/* =========================
+   PUBLIC
+========================= */
 function renderPublic(){
   stopOrdersListener();
 
@@ -67,7 +83,7 @@ function renderPublic(){
           <tr>
             <th>No</th>
             <th>Waktu Input</th>
-            <th>Jenis</th>
+            <th>Kategori</th>
             <th>Nominal</th>
             <th>Status</th>
             <th>Waktu Selesai</th>
@@ -76,22 +92,41 @@ function renderPublic(){
         <tbody id="tbody"></tbody>
       </table>
     </div>
+
+    <div class="row" style="justify-content:center; margin-top:12px;">
+      <button class="secondary" id="prevBtn">Prev</button>
+      <div class="small" id="pageInfo" style="padding:0 6px;"></div>
+      <button class="secondary" id="nextBtn">Next</button>
+    </div>
   `;
 
   const tbody = document.getElementById("tbody");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const pageInfo = document.getElementById("pageInfo");
+
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
 
   unsubscribeOrders = onSnapshot(q, (snap)=>{
-    const rows = [];
-    let no = 1;
+    const allDocs = [];
+    snap.forEach(d => allDocs.push(d));
 
-    snap.forEach((d)=>{
+    const total = allDocs.length;
+    const pager = makePager(total, publicPage, PAGE_SIZE);
+    publicPage = pager.page;
+
+    const pageDocs = allDocs.slice(pager.start, pager.end);
+
+    const rows = [];
+    pageDocs.forEach((d, idx)=>{
       const o = d.data();
       const s = STATUS.find(x=>x.v===o.status) || {label:(o.status||"-"), cls:""};
+      // nomor terbalik: atas = total, bawah = 1
+      const nomor = total - pager.start - idx;
 
       rows.push(`
         <tr>
-          <td>${no}</td>
+          <td>${nomor}</td>
           <td>${fmtTime(o.createdAt)}</td>
           <td>${o.robuxType || "-"}</td>
           <td>${o.amountLabel || "-"}</td>
@@ -99,16 +134,40 @@ function renderPublic(){
           <td>${fmtTime(o.completedAt)}</td>
         </tr>
       `);
-
-      no++;
     });
 
     tbody.innerHTML = rows.length
       ? rows.join("")
       : `<tr><td colspan="6" class="small">Belum ada order.</td></tr>`;
+
+    // pager UI
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    pageInfo.textContent = `Page ${publicPage + 1} / ${totalPages}`;
+
+    prevBtn.disabled = publicPage === 0;
+    nextBtn.disabled = publicPage >= (totalPages - 1);
+
+    prevBtn.onclick = () => {
+      if (publicPage > 0) {
+        publicPage--;
+        renderPublic();
+        window.scrollTo(0, 0);
+      }
+    };
+
+    nextBtn.onclick = () => {
+      if (publicPage < totalPages - 1) {
+        publicPage++;
+        renderPublic();
+        window.scrollTo(0, 0);
+      }
+    };
   }, (err)=>alert("Gagal load orders: " + (err?.message || err)));
 }
 
+/* =========================
+   AUTH
+========================= */
 async function adminLogin(){
   try {
     const res = await signInWithPopup(auth, provider);
@@ -131,6 +190,9 @@ async function adminLogout(){
   }
 }
 
+/* =========================
+   ADMIN
+========================= */
 function renderAdmin(){
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
@@ -172,7 +234,7 @@ function renderAdmin(){
           <tr>
             <th>No</th>
             <th>Waktu Input</th>
-            <th>Jenis</th>
+            <th>Kategori</th>
             <th>Nominal</th>
             <th>Status</th>
             <th>Waktu Selesai</th>
@@ -181,6 +243,12 @@ function renderAdmin(){
         </thead>
         <tbody id="tbody"></tbody>
       </table>
+    </div>
+
+    <div class="row" style="justify-content:center; margin-top:12px;">
+      <button class="secondary" id="prevBtnA">Prev</button>
+      <div class="small" id="pageInfoA" style="padding:0 6px;"></div>
+      <button class="secondary" id="nextBtnA">Next</button>
     </div>
   `;
 
@@ -221,19 +289,31 @@ function renderAdmin(){
   };
 
   const tbody = document.getElementById("tbody");
+  const prevBtnA = document.getElementById("prevBtnA");
+  const nextBtnA = document.getElementById("nextBtnA");
+  const pageInfoA = document.getElementById("pageInfoA");
+
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
 
   unsubscribeOrders = onSnapshot(q, (snap)=>{
-    const rows = [];
-    let no = 1;
+    const allDocs = [];
+    snap.forEach(d => allDocs.push(d));
 
-    snap.forEach((d)=>{
+    const total = allDocs.length;
+    const pager = makePager(total, adminPage, PAGE_SIZE);
+    adminPage = pager.page;
+
+    const pageDocs = allDocs.slice(pager.start, pager.end);
+
+    const rows = [];
+    pageDocs.forEach((d, idx)=>{
       const o = d.data();
       const s = STATUS.find(x=>x.v===o.status) || {label:(o.status||"-"), cls:""};
+      const nomor = total - pager.start - idx;
 
       rows.push(`
         <tr>
-          <td>${no}</td>
+          <td>${nomor}</td>
           <td>${fmtTime(o.createdAt)}</td>
           <td>${o.robuxType || "-"}</td>
           <td>${o.amountLabel || "-"}</td>
@@ -248,8 +328,6 @@ function renderAdmin(){
           </td>
         </tr>
       `);
-
-      no++;
     });
 
     tbody.innerHTML = rows.length
@@ -270,9 +348,35 @@ function renderAdmin(){
         }
       };
     });
+
+    // pager UI
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    pageInfoA.textContent = `Page ${adminPage + 1} / ${totalPages}`;
+
+    prevBtnA.disabled = adminPage === 0;
+    nextBtnA.disabled = adminPage >= (totalPages - 1);
+
+    prevBtnA.onclick = () => {
+      if (adminPage > 0) {
+        adminPage--;
+        renderAdmin();
+        window.scrollTo(0, 0);
+      }
+    };
+
+    nextBtnA.onclick = () => {
+      if (adminPage < totalPages - 1) {
+        adminPage++;
+        renderAdmin();
+        window.scrollTo(0, 0);
+      }
+    };
   }, (err)=>alert("Gagal load orders: " + (err?.message || err)));
 }
 
+/* =========================
+   ROUTER
+========================= */
 function route(){
   setActiveNav();
   const hash = location.hash || "#/";
