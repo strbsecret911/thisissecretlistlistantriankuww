@@ -7,14 +7,14 @@ import {
   doc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ✅ Firebase config kamu (project: antrianky)
+// ✅ Firebase project BARU kamu: listorderrr (CDN)
 const firebaseConfig = {
-  apiKey: "AIzaSyBN2PxHOA9u-I2iPCX_5gT1iogL5zYGHhM",
-  authDomain: "antrianky.firebaseapp.com",
-  projectId: "antrianky",
-  storageBucket: "antrianky.firebasestorage.app",
-  messagingSenderId: "194560917480",
-  appId: "1:194560917480:web:99c4bc99bfb9fcc747ae5d",
+  apiKey: "AIzaSyDprHL_l6VoXJbNgUYjYfo7iwgg06NuqMQ",
+  authDomain: "listorderrr.firebaseapp.com",
+  projectId: "listorderrr",
+  storageBucket: "listorderrr.firebasestorage.app",
+  messagingSenderId: "974810449740",
+  appId: "1:974810449740:web:4263ca79de2e7ec8efb1e9"
 };
 
 const ADMIN_EMAIL = "dinijanuari23@gmail.com";
@@ -38,7 +38,6 @@ const provider = new GoogleAuthProvider();
 
 const view = document.getElementById("view");
 const navPublic = document.getElementById("navPublic");
-const navAdmin = document.getElementById("navAdmin");
 
 let currentUser = null;
 let unsubscribeOrders = null;
@@ -51,11 +50,15 @@ function fmtTime(ts){
 
 function setActiveNav(){
   const hash = location.hash || "#/";
-  navPublic.classList.toggle("active", !hash.startsWith("#/admin"));
-  navAdmin.classList.toggle("active", hash.startsWith("#/admin"));
+  if (navPublic) navPublic.classList.toggle("active", !hash.startsWith("#/admin"));
+}
+
+function stopOrdersListener(){
+  if (unsubscribeOrders) { unsubscribeOrders(); unsubscribeOrders = null; }
 }
 
 function renderPublic(){
+  stopOrdersListener();
   view.innerHTML = `
     <div class="tableWrap">
       <table>
@@ -75,8 +78,6 @@ function renderPublic(){
   `;
 
   const tbody = document.getElementById("tbody");
-  if (unsubscribeOrders) unsubscribeOrders();
-
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
   unsubscribeOrders = onSnapshot(q, (snap)=>{
     const rows = [];
@@ -95,47 +96,65 @@ function renderPublic(){
       `);
     });
     tbody.innerHTML = rows.length ? rows.join("") : `<tr><td colspan="6" class="small">Belum ada order.</td></tr>`;
-  });
+  }, (err)=>alert("Gagal load orders: " + (err?.message || err)));
+}
+
+async function adminLogin(){
+  try {
+    const res = await signInWithPopup(auth, provider);
+    if (res.user?.email !== ADMIN_EMAIL) {
+      await signOut(auth);
+      alert("Akun ini bukan admin.");
+      location.hash = "#/";
+    }
+  } catch (e) {
+    alert("Login gagal: " + (e?.message || e));
+  }
+}
+
+async function adminLogout(){
+  try {
+    await signOut(auth);
+    location.hash = "#/";
+  } catch (e) {
+    alert("Logout gagal: " + (e?.message || e));
+  }
 }
 
 function renderAdmin(){
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
+  // non-admin yang akses /admin -> balik publik
+  if (!isAdmin) { location.hash = "#/"; return; }
+
+  stopOrdersListener();
+
   view.innerHTML = `
-    <div class="row" style="justify-content:space-between; margin: 6px 0 12px;">
-      <div class="small">
-        ${currentUser ? `Login: <b>${currentUser.email}</b>` : `Belum login`}
-        ${currentUser && !isAdmin ? ` • <b>(bukan admin)</b>` : ``}
-      </div>
-      <div class="row">
-        ${!currentUser ? `<button id="btnLogin">Login Google</button>` : ``}
-        ${currentUser ? `<button class="secondary" id="btnLogout">Logout</button>` : ``}
-      </div>
+    <div class="row" style="justify-content:flex-end; margin: 6px 0 12px;">
+      <button class="secondary" id="btnLogout">Logout</button>
     </div>
 
-    ${isAdmin ? `
-      <div class="card" style="margin: 10px 0 14px;">
-        <div class="brand" style="margin-bottom:10px;">Tambah Order Manual</div>
-        <div class="row">
-          <select id="selType">
-            <option value="REGULER">REGULER</option>
-            <option value="BASIC">BASIC</option>
-            <option value="PREMIUM">PREMIUM</option>
-          </select>
+    <div class="card" style="margin: 10px 0 14px;">
+      <div class="brand" style="margin-bottom:10px;">Tambah Order Manual</div>
+      <div class="row">
+        <select id="selType">
+          <option value="REGULER">REGULER</option>
+          <option value="BASIC">BASIC</option>
+          <option value="PREMIUM">PREMIUM</option>
+        </select>
 
-          <select id="selAmount"></select>
+        <select id="selAmount"></select>
 
-          <select id="selStatus">
-            ${STATUS.map(s=>`<option value="${s.v}">${s.label}</option>`).join("")}
-          </select>
+        <select id="selStatus">
+          ${STATUS.map(s=>`<option value="${s.v}">${s.label}</option>`).join("")}
+        </select>
 
-          <button id="btnAdd">Add</button>
-        </div>
-        <div class="small" style="margin-top:8px;">
-          * createdAt auto. completedAt auto update tiap status di-set/diubah.
-        </div>
+        <button id="btnAdd">Add</button>
       </div>
-    ` : ``}
+      <div class="small" style="margin-top:8px;">
+        * createdAt auto. completedAt auto update tiap status di-set/diubah.
+      </div>
+    </div>
 
     <div class="tableWrap">
       <table>
@@ -147,7 +166,7 @@ function renderAdmin(){
             <th>Nominal</th>
             <th>Status</th>
             <th>Waktu Selesai</th>
-            ${isAdmin ? `<th>Aksi</th>` : ``}
+            <th>Aksi</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -155,14 +174,41 @@ function renderAdmin(){
     </div>
   `;
 
-  const btnLogin = document.getElementById("btnLogin");
-  const btnLogout = document.getElementById("btnLogout");
-  if (btnLogin) btnLogin.onclick = async ()=> { await signInWithPopup(auth, provider); };
-  if (btnLogout) btnLogout.onclick = async ()=> { await signOut(auth); };
+  document.getElementById("btnLogout").onclick = adminLogout;
+
+  const selType = document.getElementById("selType");
+  const selAmount = document.getElementById("selAmount");
+  const selStatus = document.getElementById("selStatus");
+  const btnAdd = document.getElementById("btnAdd");
+
+  function fillAmount(){
+    const arr = ROBUX_OPTIONS[selType.value] || [];
+    selAmount.innerHTML = arr.map(x=>`<option value="${x}">${x}</option>`).join("");
+  }
+  fillAmount();
+  selType.onchange = fillAmount;
+
+  btnAdd.onclick = async ()=>{
+    try {
+      btnAdd.disabled = true;
+      btnAdd.textContent = "Adding...";
+      await addDoc(collection(db,"orders"), {
+        createdAt: serverTimestamp(),
+        robuxType: selType.value,
+        amountLabel: selAmount.value,
+        status: selStatus.value,
+        completedAt: serverTimestamp()
+      });
+      btnAdd.textContent = "Add";
+      btnAdd.disabled = false;
+    } catch (e) {
+      btnAdd.textContent = "Add";
+      btnAdd.disabled = false;
+      alert("Gagal add: " + (e?.message || e));
+    }
+  };
 
   const tbody = document.getElementById("tbody");
-  if (unsubscribeOrders) unsubscribeOrders();
-
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
   unsubscribeOrders = onSnapshot(q, (snap)=>{
     const rows = [];
@@ -177,57 +223,33 @@ function renderAdmin(){
           <td>${o.amountLabel || "-"}</td>
           <td><span class="badge ${s.cls}">${s.label}</span></td>
           <td>${fmtTime(o.completedAt)}</td>
-          ${isAdmin ? `
-            <td>
-              <div class="row">
-                <button class="secondary" data-id="${d.id}" data-st="PENDING">Pending</button>
-                <button class="secondary" data-id="${d.id}" data-st="PROSES">Proses</button>
-                <button data-id="${d.id}" data-st="DONE">Done</button>
-              </div>
-            </td>
-          ` : ``}
+          <td>
+            <div class="row">
+              <button class="secondary" data-id="${d.id}" data-st="PENDING">Pending</button>
+              <button class="secondary" data-id="${d.id}" data-st="PROSES">Proses</button>
+              <button data-id="${d.id}" data-st="DONE">Done</button>
+            </div>
+          </td>
         </tr>
       `);
     });
-    tbody.innerHTML = rows.length ? rows.join("") : `<tr><td colspan="${isAdmin?7:6}" class="small">Belum ada order.</td></tr>`;
+    tbody.innerHTML = rows.length ? rows.join("") : `<tr><td colspan="7" class="small">Belum ada order.</td></tr>`;
 
-    if (isAdmin) {
-      tbody.querySelectorAll("button[data-id]").forEach(btn=>{
-        btn.onclick = async ()=>{
+    tbody.querySelectorAll("button[data-id]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        try {
           const id = btn.getAttribute("data-id");
           const st = btn.getAttribute("data-st");
           await updateDoc(doc(db,"orders", id), {
             status: st,
             completedAt: serverTimestamp()
           });
-        };
-      });
-    }
-  });
-
-  if (isAdmin) {
-    const selType = document.getElementById("selType");
-    const selAmount = document.getElementById("selAmount");
-    const selStatus = document.getElementById("selStatus");
-    const btnAdd = document.getElementById("btnAdd");
-
-    function fillAmount(){
-      const arr = ROBUX_OPTIONS[selType.value] || [];
-      selAmount.innerHTML = arr.map(x=>`<option value="${x}">${x}</option>`).join("");
-    }
-    fillAmount();
-    selType.onchange = fillAmount;
-
-    btnAdd.onclick = async ()=>{
-      await addDoc(collection(db,"orders"), {
-        createdAt: serverTimestamp(),
-        robuxType: selType.value,
-        amountLabel: selAmount.value,
-        status: selStatus.value,
-        completedAt: serverTimestamp()
-      });
-    };
-  }
+        } catch (e) {
+          alert("Gagal update status: " + (e?.message || e));
+        }
+      };
+    });
+  }, (err)=>alert("Gagal load orders: " + (err?.message || err)));
 }
 
 function route(){
@@ -242,5 +264,13 @@ onAuthStateChanged(auth, (u)=>{
   route();
 });
 
-window.addEventListener("hashchange", route);
+window.addEventListener("hashchange", async ()=>{
+  const hash = location.hash || "#/";
+  if (hash.startsWith("#/admin") && currentUser?.email !== ADMIN_EMAIL) {
+    await adminLogin(); // auto popup login kalau kamu buka /admin
+  } else {
+    route();
+  }
+});
+
 route();
