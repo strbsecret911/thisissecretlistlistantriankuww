@@ -102,3 +102,30 @@ th{ background: rgba(201,219,240,.55); font-size:13px; text-transform:uppercase;
     padding: 10px;
   }
 }
+
+/* =========================
+   STICKY HEADER (tabel)
+========================= */
+.tableWrap {
+  overflow: auto;          /* biar bisa scroll dalam card */
+  max-height: 65vh;        /* tabel tinggi maks, enak di HP */
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(201,219,240,.95); /* biar header jelas */
+  backdrop-filter: blur(6px);
+}
+
+/* =========================
+   COMPACT MODE (toggle)
+   - aktif kalau body punya class: compact
+========================= */
+body.compact table { font-size: 11px; }
+body.compact th, body.compact td { padding: 6px 6px; white-space: nowrap; }
+body.compact .badge { font-size: 10px; padding: 4px 6px; }
+body.compact button, body.compact select, body.compact input { font-size: 11px; padding: 7px 10px; }
+body.compact .card { padding: 12px; }
+body.compact .small { font-size: 10px; }
