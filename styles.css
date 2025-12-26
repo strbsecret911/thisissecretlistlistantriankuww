@@ -66,44 +66,6 @@ th{ background: rgba(201,219,240,.55); font-size:13px; text-transform:uppercase;
 .badge.done{ background: rgba(76,175,80,.18); }
 
 /* =========================
-   MOBILE OPTIMIZATION
-========================= */
-@media (max-width: 600px) {
-
-  table {
-    font-size: 11px; /* perkecil font tabel */
-  }
-
-  th, td {
-    padding: 6px 6px; /* perkecil padding */
-    white-space: nowrap; /* cegah teks turun baris */
-  }
-
-  .badge {
-    font-size: 10px;
-    padding: 4px 6px;
-  }
-
-  .pill {
-    font-size: 11px;
-    padding: 6px 10px;
-  }
-
-  button {
-    font-size: 11px;
-    padding: 6px 10px;
-  }
-
-  .small {
-    font-size: 10px;
-  }
-
-  .card {
-    padding: 10px;
-  }
-}
-
-/* =========================
    STICKY HEADER (tabel)
 ========================= */
 .tableWrap {
