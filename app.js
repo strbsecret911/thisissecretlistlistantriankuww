@@ -71,6 +71,45 @@ function makePager(total, page, pageSize){
 }
 
 /* =========================
+   SUMMARY HELPERS
+========================= */
+function parseRobux(amountLabel){
+  // "1.700 Robux" / "450 Robux + Premium" -> ambil angka pertama
+  const s = String(amountLabel || "");
+  const m = s.match(/[\d.]+/);
+  if(!m) return 0;
+  const num = m[0].replaceAll(".", "");
+  const n = parseInt(num, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatID(n){
+  return (n || 0).toLocaleString("id-ID");
+}
+
+function calcSummaryFromData(list){
+  let pending = 0, proses = 0, done = 0;
+  let robuxDone = 0;
+
+  for (const o of list){
+    if (o.status === "PENDING") pending++;
+    else if (o.status === "PROSES") proses++;
+    else if (o.status === "DONE") {
+      done++;
+      robuxDone += parseRobux(o.amountLabel);
+    }
+  }
+
+  return {
+    total: list.length,
+    pending,
+    proses,
+    done,
+    robuxDone
+  };
+}
+
+/* =========================
    PUBLIC
 ========================= */
 function renderPublic(){
@@ -98,6 +137,31 @@ function renderPublic(){
       <div class="small" id="pageInfo" style="padding:0 6px;"></div>
       <button class="secondary" id="nextBtn">Next</button>
     </div>
+
+    <div class="summaryBox">
+      <div class="summaryGrid">
+        <div class="summaryItem">
+          <div class="summaryLabel">Total Order</div>
+          <div class="summaryValue" id="sumTotal">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Robux Terjual (Done)</div>
+          <div class="summaryValue" id="sumRobuxDone">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Pending</div>
+          <div class="summaryValue" id="sumPending">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Proses</div>
+          <div class="summaryValue" id="sumProses">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Done</div>
+          <div class="summaryValue" id="sumDone">0</div>
+        </div>
+      </div>
+    </div>
   `;
 
   const tbody = document.getElementById("tbody");
@@ -105,12 +169,29 @@ function renderPublic(){
   const nextBtn = document.getElementById("nextBtn");
   const pageInfo = document.getElementById("pageInfo");
 
+  // summary refs
+  const sumTotal = document.getElementById("sumTotal");
+  const sumPending = document.getElementById("sumPending");
+  const sumProses = document.getElementById("sumProses");
+  const sumDone = document.getElementById("sumDone");
+  const sumRobuxDone = document.getElementById("sumRobuxDone");
+
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
 
   unsubscribeOrders = onSnapshot(q, (snap)=>{
     const allDocs = [];
     snap.forEach(d => allDocs.push(d));
 
+    // SUMMARY (global semua order)
+    const allData = allDocs.map(d => d.data());
+    const summary = calcSummaryFromData(allData);
+    sumTotal.textContent = formatID(summary.total);
+    sumPending.textContent = formatID(summary.pending);
+    sumProses.textContent = formatID(summary.proses);
+    sumDone.textContent = formatID(summary.done);
+    sumRobuxDone.textContent = formatID(summary.robuxDone);
+
+    // PAGING
     const total = allDocs.length;
     const pager = makePager(total, publicPage, PAGE_SIZE);
     publicPage = pager.page;
@@ -121,7 +202,6 @@ function renderPublic(){
     pageDocs.forEach((d, idx)=>{
       const o = d.data();
       const s = STATUS.find(x=>x.v===o.status) || {label:(o.status||"-"), cls:""};
-      // nomor terbalik: atas = total, bawah = 1
       const nomor = total - pager.start - idx;
 
       rows.push(`
@@ -140,7 +220,6 @@ function renderPublic(){
       ? rows.join("")
       : `<tr><td colspan="6" class="small">Belum ada order.</td></tr>`;
 
-    // pager UI
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     pageInfo.textContent = `Page ${publicPage + 1} / ${totalPages}`;
 
@@ -196,7 +275,6 @@ async function adminLogout(){
 function renderAdmin(){
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
-  // non-admin yang akses /admin -> balik publik
   if (!isAdmin) { location.hash = "#/"; return; }
 
   stopOrdersListener();
@@ -250,6 +328,31 @@ function renderAdmin(){
       <div class="small" id="pageInfoA" style="padding:0 6px;"></div>
       <button class="secondary" id="nextBtnA">Next</button>
     </div>
+
+    <div class="summaryBox">
+      <div class="summaryGrid">
+        <div class="summaryItem">
+          <div class="summaryLabel">Total Order</div>
+          <div class="summaryValue" id="sumTotalA">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Robux Terjual (Done)</div>
+          <div class="summaryValue" id="sumRobuxDoneA">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Pending</div>
+          <div class="summaryValue" id="sumPendingA">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Proses</div>
+          <div class="summaryValue" id="sumProsesA">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Done</div>
+          <div class="summaryValue" id="sumDoneA">0</div>
+        </div>
+      </div>
+    </div>
   `;
 
   document.getElementById("btnLogout").onclick = adminLogout;
@@ -293,12 +396,29 @@ function renderAdmin(){
   const nextBtnA = document.getElementById("nextBtnA");
   const pageInfoA = document.getElementById("pageInfoA");
 
+  // summary refs
+  const sumTotalA = document.getElementById("sumTotalA");
+  const sumPendingA = document.getElementById("sumPendingA");
+  const sumProsesA = document.getElementById("sumProsesA");
+  const sumDoneA = document.getElementById("sumDoneA");
+  const sumRobuxDoneA = document.getElementById("sumRobuxDoneA");
+
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
 
   unsubscribeOrders = onSnapshot(q, (snap)=>{
     const allDocs = [];
     snap.forEach(d => allDocs.push(d));
 
+    // SUMMARY (global semua order)
+    const allData = allDocs.map(d => d.data());
+    const summary = calcSummaryFromData(allData);
+    sumTotalA.textContent = formatID(summary.total);
+    sumPendingA.textContent = formatID(summary.pending);
+    sumProsesA.textContent = formatID(summary.proses);
+    sumDoneA.textContent = formatID(summary.done);
+    sumRobuxDoneA.textContent = formatID(summary.robuxDone);
+
+    // PAGING
     const total = allDocs.length;
     const pager = makePager(total, adminPage, PAGE_SIZE);
     adminPage = pager.page;
@@ -349,7 +469,6 @@ function renderAdmin(){
       };
     });
 
-    // pager UI
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     pageInfoA.textContent = `Page ${adminPage + 1} / ${totalPages}`;
 
