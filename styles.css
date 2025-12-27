@@ -23,7 +23,7 @@ body{
 }
 .header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
 .brand{ font-weight:800; letter-spacing:.3px; }
-.small{ color: var(--muted); font-size: 12px; }
+.small{ color: var(--muted); font-size: 10px; }
 
 .pills{ display:flex; gap:10px; flex-wrap:wrap; }
 .pill{
@@ -54,8 +54,8 @@ button.secondary{ background: rgba(11,31,59,.08); color: var(--navy); }
   border: 1px solid rgba(11,31,59,.10);
 }
 table{ width:100%; border-collapse:collapse; min-width: 860px; background:#fff; }
-th, td{ padding: 12px 10px; border-bottom: 1px solid rgba(11,31,59,.08); text-align:left; font-size:14px; }
-th{ background: rgba(201,219,240,.55); font-size:13px; text-transform:uppercase; letter-spacing:.6px; }
+th, td{ padding: 12px 10px; border-bottom: 1px solid rgba(11,31,59,.08); text-align:left; font-size:12px; }
+th{ background: rgba(201,219,240,.55); font-size:11px; text-transform:uppercase; letter-spacing:.6px; }
 
 .badge{
   display:inline-block; padding:6px 10px; border-radius:999px; font-weight:700;
@@ -71,7 +71,7 @@ th{ background: rgba(201,219,240,.55); font-size:13px; text-transform:uppercase;
 @media (max-width: 600px) {
 
   table {
-    font-size: 11px; /* perkecil font tabel */
+    font-size: 9px; /* perkecil font tabel */
   }
 
   th, td {
@@ -80,22 +80,22 @@ th{ background: rgba(201,219,240,.55); font-size:13px; text-transform:uppercase;
   }
 
   .badge {
-    font-size: 10px;
+    font-size: 9px;
     padding: 4px 6px;
   }
 
   .pill {
-    font-size: 11px;
+    font-size: 10px;
     padding: 6px 10px;
   }
 
   button {
-    font-size: 11px;
+    font-size: 10px;
     padding: 6px 10px;
   }
 
   .small {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .card {
