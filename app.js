@@ -4,7 +4,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, onSnapshot, query, orderBy,
-  doc, updateDoc, serverTimestamp
+  doc, updateDoc, serverTimestamp,
+  getDocs, where, Timestamp, writeBatch, limit
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // ✅ Firebase project: listorderrr (CDN)
@@ -109,6 +110,102 @@ function calcSummaryFromData(list){
 }
 
 /* =========================
+   BACKUP HELPERS (CSV)
+========================= */
+function monthToRange(monthStr){ // "2025-12"
+  const [y, m] = monthStr.split("-").map(x=>parseInt(x,10));
+  const start = new Date(y, m-1, 1, 0, 0, 0);
+  const end = new Date(y, m, 1, 0, 0, 0);
+  return {
+    startTS: Timestamp.fromDate(start),
+    endTS: Timestamp.fromDate(end),
+    label: `${String(m).padStart(2,"0")}-${y}`
+  };
+}
+
+function escapeCSV(v){
+  const s = String(v ?? "");
+  if (/[,"\n]/.test(s)) return `"${s.replaceAll('"','""')}"`;
+  return s;
+}
+
+function downloadTextFile(filename, text){
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadMonthlyCSV(monthStr){
+  const { startTS, endTS, label } = monthToRange(monthStr);
+
+  const q = query(
+    collection(db,"orders"),
+    where("createdAt", ">=", startTS),
+    where("createdAt", "<", endTS),
+    orderBy("createdAt","desc")
+  );
+
+  const snap = await getDocs(q);
+  const rows = [];
+  rows.push(["No","Nominal","Kategori","Status","Waktu Input","Waktu Selesai"].map(escapeCSV).join(","));
+
+  let no = snap.size; // biar nomor terbalik juga
+  snap.forEach(docSnap=>{
+    const o = docSnap.data();
+    const s = STATUS.find(x=>x.v===o.status) || {label:(o.status||"-")};
+
+    rows.push([
+      no,
+      o.amountLabel || "-",
+      o.robuxType || "-",
+      s.label,
+      fmtTime(o.createdAt),
+      fmtTime(o.completedAt)
+    ].map(escapeCSV).join(","));
+
+    no--;
+  });
+
+  const csv = rows.join("\n");
+  downloadTextFile(`backup-orders-${label}.csv`, csv);
+}
+
+/* =========================
+   RESET HELPERS
+   - hapus semua doc di orders (batch 500)
+========================= */
+async function resetAllOrders(){
+  const ok = confirm("Yakin mau RESET antrian?\n\nIni akan menghapus SEMUA data di collection 'orders' dan tidak bisa dibatalkan.");
+  if(!ok) return;
+
+  // safety confirm kedua
+  const ok2 = confirm("Konfirmasi lagi: Hapus SEMUA order? Klik OK untuk lanjut.");
+  if(!ok2) return;
+
+  let deleted = 0;
+
+  while(true){
+    const q = query(collection(db,"orders"), orderBy("createdAt","desc"), limit(500));
+    const snap = await getDocs(q);
+    if (snap.empty) break;
+
+    const batch = writeBatch(db);
+    snap.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+
+    deleted += snap.size;
+  }
+
+  alert(`Selesai reset. Total terhapus: ${deleted}`);
+}
+
+/* =========================
    PUBLIC
 ========================= */
 function renderPublic(){
@@ -168,7 +265,6 @@ function renderPublic(){
   const nextBtn = document.getElementById("nextBtn");
   const pageInfo = document.getElementById("pageInfo");
 
-  // summary refs
   const sumTotal = document.getElementById("sumTotal");
   const sumPending = document.getElementById("sumPending");
   const sumProses = document.getElementById("sumProses");
@@ -181,7 +277,7 @@ function renderPublic(){
     const allDocs = [];
     snap.forEach(d => allDocs.push(d));
 
-    // SUMMARY (global semua order)
+    // SUMMARY global
     const allData = allDocs.map(d => d.data());
     const summary = calcSummaryFromData(allData);
     sumTotal.textContent = formatID(summary.total);
@@ -277,6 +373,10 @@ function renderAdmin(){
 
   stopOrdersListener();
 
+  // default month = bulan sekarang
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+
   view.innerHTML = `
     <div class="row" style="justify-content:flex-end; margin: 6px 0 12px;">
       <button class="secondary" id="btnLogout">Logout</button>
@@ -301,6 +401,18 @@ function renderAdmin(){
       </div>
       <div class="small" style="margin-top:8px;">
         * createdAt auto. completedAt auto update tiap status di-set/diubah.
+      </div>
+    </div>
+
+    <div class="card" style="margin: 10px 0 14px;">
+      <div class="brand" style="margin-bottom:10px;">Backup & Reset</div>
+      <div class="row">
+        <input id="monthPick" type="month" value="${defaultMonth}" />
+        <button class="secondary" id="btnDownload">Download Backup (CSV)</button>
+        <button id="btnReset" style="background:#b91c1c;">Reset Antrian</button>
+      </div>
+      <div class="small" style="margin-top:8px;">
+        * Backup akan mengambil data dari bulan yang dipilih berdasarkan <b>createdAt</b>.
       </div>
     </div>
 
@@ -355,6 +467,38 @@ function renderAdmin(){
 
   document.getElementById("btnLogout").onclick = adminLogout;
 
+  // Backup + Reset handlers
+  const monthPick = document.getElementById("monthPick");
+  const btnDownload = document.getElementById("btnDownload");
+  const btnReset = document.getElementById("btnReset");
+
+  btnDownload.onclick = async ()=>{
+    try{
+      btnDownload.disabled = true;
+      btnDownload.textContent = "Downloading...";
+      await downloadMonthlyCSV(monthPick.value);
+    } catch(e){
+      alert("Gagal download backup: " + (e?.message || e));
+    } finally {
+      btnDownload.disabled = false;
+      btnDownload.textContent = "Download Backup (CSV)";
+    }
+  };
+
+  btnReset.onclick = async ()=>{
+    try{
+      btnReset.disabled = true;
+      btnReset.textContent = "Resetting...";
+      await resetAllOrders();
+    } catch(e){
+      alert("Gagal reset: " + (e?.message || e));
+    } finally {
+      btnReset.disabled = false;
+      btnReset.textContent = "Reset Antrian";
+    }
+  };
+
+  // Add order controls
   const selType = document.getElementById("selType");
   const selAmount = document.getElementById("selAmount");
   const selStatus = document.getElementById("selStatus");
@@ -378,12 +522,11 @@ function renderAdmin(){
         status: selStatus.value,
         completedAt: serverTimestamp()
       });
-      btnAdd.textContent = "Add";
-      btnAdd.disabled = false;
     } catch (e) {
+      alert("Gagal add: " + (e?.message || e));
+    } finally {
       btnAdd.textContent = "Add";
       btnAdd.disabled = false;
-      alert("Gagal add: " + (e?.message || e));
     }
   };
 
@@ -504,7 +647,7 @@ onAuthStateChanged(auth, (u)=>{
 window.addEventListener("hashchange", async ()=>{
   const hash = location.hash || "#/";
   if (hash.startsWith("#/admin") && currentUser?.email !== ADMIN_EMAIL) {
-    await adminLogin();
+    await adminLogin(); // auto popup login kalau kamu buka /admin
   } else {
     route();
   }
