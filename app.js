@@ -74,7 +74,6 @@ function makePager(total, page, pageSize){
    SUMMARY HELPERS
 ========================= */
 function parseRobux(amountLabel){
-  // "1.700 Robux" / "450 Robux + Premium" -> ambil angka pertama
   const s = String(amountLabel || "");
   const m = s.match(/[\d.]+/);
   if(!m) return 0;
@@ -121,10 +120,10 @@ function renderPublic(){
         <thead>
           <tr>
             <th>No</th>
-            <th>Waktu Input</th>
-            <th>Kategori</th>
             <th>Nominal</th>
+            <th>Kategori</th>
             <th>Status</th>
+            <th>Waktu Input</th>
             <th>Waktu Selesai</th>
           </tr>
         </thead>
@@ -207,10 +206,10 @@ function renderPublic(){
       rows.push(`
         <tr>
           <td>${nomor}</td>
-          <td>${fmtTime(o.createdAt)}</td>
-          <td>${o.robuxType || "-"}</td>
           <td>${o.amountLabel || "-"}</td>
+          <td>${o.robuxType || "-"}</td>
           <td><span class="badge ${s.cls}">${s.label}</span></td>
+          <td>${fmtTime(o.createdAt)}</td>
           <td>${fmtTime(o.completedAt)}</td>
         </tr>
       `);
@@ -274,7 +273,6 @@ async function adminLogout(){
 ========================= */
 function renderAdmin(){
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
-
   if (!isAdmin) { location.hash = "#/"; return; }
 
   stopOrdersListener();
@@ -311,10 +309,10 @@ function renderAdmin(){
         <thead>
           <tr>
             <th>No</th>
-            <th>Waktu Input</th>
-            <th>Kategori</th>
             <th>Nominal</th>
+            <th>Kategori</th>
             <th>Status</th>
+            <th>Waktu Input</th>
             <th>Waktu Selesai</th>
             <th>Aksi</th>
           </tr>
@@ -373,7 +371,6 @@ function renderAdmin(){
     try {
       btnAdd.disabled = true;
       btnAdd.textContent = "Adding...";
-
       await addDoc(collection(db,"orders"), {
         createdAt: serverTimestamp(),
         robuxType: selType.value,
@@ -381,7 +378,6 @@ function renderAdmin(){
         status: selStatus.value,
         completedAt: serverTimestamp()
       });
-
       btnAdd.textContent = "Add";
       btnAdd.disabled = false;
     } catch (e) {
@@ -396,7 +392,6 @@ function renderAdmin(){
   const nextBtnA = document.getElementById("nextBtnA");
   const pageInfoA = document.getElementById("pageInfoA");
 
-  // summary refs
   const sumTotalA = document.getElementById("sumTotalA");
   const sumPendingA = document.getElementById("sumPendingA");
   const sumProsesA = document.getElementById("sumProsesA");
@@ -409,7 +404,6 @@ function renderAdmin(){
     const allDocs = [];
     snap.forEach(d => allDocs.push(d));
 
-    // SUMMARY (global semua order)
     const allData = allDocs.map(d => d.data());
     const summary = calcSummaryFromData(allData);
     sumTotalA.textContent = formatID(summary.total);
@@ -418,7 +412,6 @@ function renderAdmin(){
     sumDoneA.textContent = formatID(summary.done);
     sumRobuxDoneA.textContent = formatID(summary.robuxDone);
 
-    // PAGING
     const total = allDocs.length;
     const pager = makePager(total, adminPage, PAGE_SIZE);
     adminPage = pager.page;
@@ -434,10 +427,10 @@ function renderAdmin(){
       rows.push(`
         <tr>
           <td>${nomor}</td>
-          <td>${fmtTime(o.createdAt)}</td>
-          <td>${o.robuxType || "-"}</td>
           <td>${o.amountLabel || "-"}</td>
+          <td>${o.robuxType || "-"}</td>
           <td><span class="badge ${s.cls}">${s.label}</span></td>
+          <td>${fmtTime(o.createdAt)}</td>
           <td>${fmtTime(o.completedAt)}</td>
           <td>
             <div class="row">
@@ -511,7 +504,7 @@ onAuthStateChanged(auth, (u)=>{
 window.addEventListener("hashchange", async ()=>{
   const hash = location.hash || "#/";
   if (hash.startsWith("#/admin") && currentUser?.email !== ADMIN_EMAIL) {
-    await adminLogin(); // auto popup login kalau kamu buka /admin
+    await adminLogin();
   } else {
     route();
   }
