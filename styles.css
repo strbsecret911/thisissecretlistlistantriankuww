@@ -102,3 +102,35 @@ th{ background: rgba(201,219,240,.55); font-size:11px; text-transform:uppercase;
     padding: 10px;
   }
 }
+
+.summaryBox{
+  margin-top: 12px;
+  background: rgba(255,255,255,.85);
+  border: 1px solid rgba(11,31,59,.10);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.summaryGrid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+
+.summaryItem{
+  background: rgba(201,219,240,.35);
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.summaryLabel{
+  font-size: 11px;
+  opacity: .75;
+  font-weight: 700;
+}
+
+.summaryValue{
+  font-size: 16px;
+  font-weight: 900;
+  margin-top: 2px;
+}
