@@ -29,6 +29,29 @@ const ROBUX_OPTIONS = {
   REGULER: ["80 Robux","160 Robux","240 Robux","320 Robux","400 Robux","480 Robux","560 Robux","640 Robux","720 Robux","800 Robux","1.700 Robux","2.100 Robux","3.400 Robux","4.500 Robux","10.000 Robux","22.500 Robux"],
   BASIC: ["500 Robux","580 Robux","660 Robux","740 Robux","820 Robux","1.000 Robux","1.500 Robux","2.000 Robux","2.500 Robux","3.000 Robux","3.500 Robux","4.000 Robux","5.000 Robux","6.000 Robux","15.000 Robux"],
   PREMIUM: ["450 Robux + Premium","1.000 Robux + Premium","1.550 Robux + Premium","2.200 Robux + Premium","2.750 Robux + Premium","3.300 Robux + Premium","4.400 Robux + Premium","5.500 Robux + Premium","11.000 Robux + Premium"],
+
+  Heartopia: [
+    "20 hearts diamond",
+    "60 hearts diamond",
+    "80 hearts diamond",
+    "300 + 20 hearts diamond",
+    "320 + 20 hearts diamond",
+    "360 + 20 hearts diamond",
+    "380 + 20 hearts diamond",
+    "680 + 50 hearts diamond",
+    "700 + 50 hearts diamond",
+    "740 + 50 hearts diamond",
+    "980 + 70 hearts diamond",
+    "1280 + 90 hearts diamond",
+    "1340 + 90 hearts diamond",
+    "1580 + 110 hearts diamond",
+    "1980 + 150 hearts diamond",
+    "2280 + 170 hearts diamond",
+    "3280 + 270 hearts diamond",
+    "6480 + 570 hearts diamond",
+    "GAMG Junior Membership (7D)",
+    "GAMG Full Membership (30)"
+  ],
 };
 
 const STATUS = [
@@ -83,6 +106,18 @@ function parseRobux(amountLabel){
   return Number.isFinite(n) ? n : 0;
 }
 
+function parseHeartDiamond(amountLabel){
+  const s = String(amountLabel || "").toLowerCase();
+  if (!s.includes("hearts")) return 0;
+
+  const m = s.match(/[\d.]+/g);
+  if(!m) return 0;
+
+  const first = m[0].replaceAll(".", "");
+  const n = parseInt(first, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function formatID(n){
   return (n || 0).toLocaleString("id-ID");
 }
@@ -90,6 +125,7 @@ function formatID(n){
 function calcSummaryFromData(list){
   let pending = 0, proses = 0, done = 0;
   let robuxDone = 0;
+  let heartDiamondDone = 0;
 
   for (const o of list){
     if (o.status === "PENDING") pending++;
@@ -97,6 +133,7 @@ function calcSummaryFromData(list){
     else if (o.status === "DONE") {
       done++;
       robuxDone += parseRobux(o.amountLabel);
+      heartDiamondDone += parseHeartDiamond(o.amountLabel);
     }
   }
 
@@ -105,7 +142,8 @@ function calcSummaryFromData(list){
     pending,
     proses,
     done,
-    robuxDone
+    robuxDone,
+    heartDiamondDone
   };
 }
 
@@ -245,6 +283,10 @@ function renderPublic(){
           <div class="summaryValue" id="sumRobuxDone">0</div>
         </div>
         <div class="summaryItem">
+          <div class="summaryLabel">Heart Diamond Terjual (Done)</div>
+          <div class="summaryValue" id="sumHeartDiamondDone">0</div>
+        </div>
+        <div class="summaryItem">
           <div class="summaryLabel">Pending</div>
           <div class="summaryValue" id="sumPending">0</div>
         </div>
@@ -270,6 +312,7 @@ function renderPublic(){
   const sumProses = document.getElementById("sumProses");
   const sumDone = document.getElementById("sumDone");
   const sumRobuxDone = document.getElementById("sumRobuxDone");
+  const sumHeartDiamondDone = document.getElementById("sumHeartDiamondDone");
 
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
 
@@ -285,6 +328,7 @@ function renderPublic(){
     sumProses.textContent = formatID(summary.proses);
     sumDone.textContent = formatID(summary.done);
     sumRobuxDone.textContent = formatID(summary.robuxDone);
+    sumHeartDiamondDone.textContent = formatID(summary.heartDiamondDone);
 
     // PAGING
     const total = allDocs.length;
@@ -386,9 +430,7 @@ function renderAdmin(){
       <div class="brand" style="margin-bottom:10px;">Tambah Order Manual</div>
       <div class="row">
         <select id="selType">
-          <option value="REGULER">REGULER</option>
-          <option value="BASIC">BASIC</option>
-          <option value="PREMIUM">PREMIUM</option>
+          ${Object.keys(ROBUX_OPTIONS).map(k=>`<option value="${k}">${k}</option>`).join("")}
         </select>
 
         <select id="selAmount"></select>
@@ -448,6 +490,10 @@ function renderAdmin(){
         <div class="summaryItem">
           <div class="summaryLabel">Robux Terjual (Done)</div>
           <div class="summaryValue" id="sumRobuxDoneA">0</div>
+        </div>
+        <div class="summaryItem">
+          <div class="summaryLabel">Heart Diamond Terjual (Done)</div>
+          <div class="summaryValue" id="sumHeartDiamondDoneA">0</div>
         </div>
         <div class="summaryItem">
           <div class="summaryLabel">Pending</div>
@@ -540,6 +586,7 @@ function renderAdmin(){
   const sumProsesA = document.getElementById("sumProsesA");
   const sumDoneA = document.getElementById("sumDoneA");
   const sumRobuxDoneA = document.getElementById("sumRobuxDoneA");
+  const sumHeartDiamondDoneA = document.getElementById("sumHeartDiamondDoneA");
 
   const q = query(collection(db,"orders"), orderBy("createdAt","desc"));
 
@@ -554,6 +601,7 @@ function renderAdmin(){
     sumProsesA.textContent = formatID(summary.proses);
     sumDoneA.textContent = formatID(summary.done);
     sumRobuxDoneA.textContent = formatID(summary.robuxDone);
+    sumHeartDiamondDoneA.textContent = formatID(summary.heartDiamondDone);
 
     const total = allDocs.length;
     const pager = makePager(total, adminPage, PAGE_SIZE);
