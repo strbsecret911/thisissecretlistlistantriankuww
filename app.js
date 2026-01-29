@@ -428,19 +428,35 @@ function renderAdmin(){
 
     <div class="card" style="margin: 10px 0 14px;">
       <div class="brand" style="margin-bottom:10px;">Tambah Order Manual</div>
-      <div class="row">
+
+      <div class="row" style="align-items:center; gap:10px; margin-bottom:8px;">
+        <label class="small" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="chkCustom" />
+          Custom (ketik sendiri)
+        </label>
+      </div>
+
+      <div class="row" id="rowPreset">
         <select id="selType">
           ${Object.keys(ROBUX_OPTIONS).map(k=>`<option value="${k}">${k}</option>`).join("")}
         </select>
 
         <select id="selAmount"></select>
+      </div>
 
+      <div class="row" id="rowCustom" style="display:none;">
+        <input id="inpCustomCategory" placeholder="Kategori (contoh: Mobile Legends / DLL)" />
+        <input id="inpCustomNominal" placeholder="Nominal (contoh: 123 Diamonds / Rp 50.000 / dll)" />
+      </div>
+
+      <div class="row" style="margin-top:10px;">
         <select id="selStatus">
           ${STATUS.map(s=>`<option value="${s.v}">${s.label}</option>`).join("")}
         </select>
 
         <button id="btnAdd">Add</button>
       </div>
+
       <div class="small" style="margin-top:8px;">
         * createdAt auto. completedAt auto update tiap status di-set/diubah.
       </div>
@@ -545,10 +561,26 @@ function renderAdmin(){
   };
 
   // Add order controls
+  const chkCustom = document.getElementById("chkCustom");
+  const rowPreset = document.getElementById("rowPreset");
+  const rowCustom = document.getElementById("rowCustom");
+
   const selType = document.getElementById("selType");
   const selAmount = document.getElementById("selAmount");
+
+  const inpCustomCategory = document.getElementById("inpCustomCategory");
+  const inpCustomNominal = document.getElementById("inpCustomNominal");
+
   const selStatus = document.getElementById("selStatus");
   const btnAdd = document.getElementById("btnAdd");
+
+  function toggleCustomUI(){
+    const isCustom = !!chkCustom.checked;
+    rowPreset.style.display = isCustom ? "none" : "";
+    rowCustom.style.display = isCustom ? "" : "none";
+  }
+  chkCustom.onchange = toggleCustomUI;
+  toggleCustomUI();
 
   function fillAmount(){
     const arr = ROBUX_OPTIONS[selType.value] || [];
@@ -561,13 +593,34 @@ function renderAdmin(){
     try {
       btnAdd.disabled = true;
       btnAdd.textContent = "Adding...";
+
+      const isCustom = !!chkCustom.checked;
+
+      const robuxType = isCustom
+        ? (inpCustomCategory.value || "").trim()
+        : selType.value;
+
+      const amountLabel = isCustom
+        ? (inpCustomNominal.value || "").trim()
+        : selAmount.value;
+
+      if (!robuxType || !amountLabel){
+        alert("Kategori & Nominal wajib diisi.");
+        return;
+      }
+
       await addDoc(collection(db,"orders"), {
         createdAt: serverTimestamp(),
-        robuxType: selType.value,
-        amountLabel: selAmount.value,
+        robuxType,
+        amountLabel,
         status: selStatus.value,
         completedAt: serverTimestamp()
       });
+
+      if (isCustom){
+        inpCustomCategory.value = "";
+        inpCustomNominal.value = "";
+      }
     } catch (e) {
       alert("Gagal add: " + (e?.message || e));
     } finally {
