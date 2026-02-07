@@ -94,6 +94,12 @@ function makePager(total, page, pageSize){
   return { maxPage, page: safePage, start, end };
 }
 
+function pad2(n){ return String(n).padStart(2,"0"); }
+function toLocalInput(dt){
+  // datetime-local: YYYY-MM-DDTHH:mm
+  return `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+}
+
 /* =========================
    SUMMARY HELPERS
 ========================= */
@@ -458,7 +464,7 @@ function renderAdmin(){
       </div>
 
       <div class="small" style="margin-top:8px;">
-        * createdAt auto. completedAt auto update tiap status di-set/diubah.
+        * createdAt auto. completedAt hanya terisi kalau status = DONE (bisa diedit manual).
       </div>
     </div>
 
@@ -609,12 +615,15 @@ function renderAdmin(){
         return;
       }
 
+      const st = selStatus.value;
+
       await addDoc(collection(db,"orders"), {
         createdAt: serverTimestamp(),
         robuxType,
         amountLabel,
-        status: selStatus.value,
-        completedAt: serverTimestamp()
+        status: st,
+        // ✅ hanya isi completedAt kalau langsung DONE
+        completedAt: st === "DONE" ? serverTimestamp() : null
       });
 
       if (isCustom){
@@ -677,10 +686,13 @@ function renderAdmin(){
           <td>${fmtTime(o.createdAt)}</td>
           <td>${fmtTime(o.completedAt)}</td>
           <td>
-            <div class="row">
+            <div class="row" style="flex-wrap:wrap;">
               <button class="secondary" data-id="${d.id}" data-st="PENDING">Pending</button>
               <button class="secondary" data-id="${d.id}" data-st="PROSES">Proses</button>
               <button data-id="${d.id}" data-st="DONE">Done</button>
+
+              <button class="secondary" data-edit="${d.id}">Edit Selesai</button>
+              <button class="secondary" data-clear="${d.id}">Clear Selesai</button>
             </div>
           </td>
         </tr>
@@ -691,17 +703,66 @@ function renderAdmin(){
       ? rows.join("")
       : `<tr><td colspan="7" class="small">Belum ada order.</td></tr>`;
 
+    // ✅ Update status + completedAt logic
     tbody.querySelectorAll("button[data-id]").forEach(btn=>{
       btn.onclick = async ()=>{
         try {
           const id = btn.getAttribute("data-id");
           const st = btn.getAttribute("data-st");
+
           await updateDoc(doc(db,"orders", id), {
             status: st,
-            completedAt: serverTimestamp()
+            // ✅ completedAt hanya terisi kalau DONE
+            completedAt: st === "DONE" ? serverTimestamp() : null
           });
         } catch (e) {
           alert("Gagal update status: " + (e?.message || e));
+        }
+      };
+    });
+
+    // ✅ Edit completedAt manual (sekalian set status DONE biar konsisten)
+    tbody.querySelectorAll("button[data-edit]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        try{
+          const id = btn.getAttribute("data-edit");
+
+          const found = allDocs.find(x=>x.id===id);
+          const o = found?.data?.() ? found.data() : null;
+
+          const existing = o?.completedAt?.toDate?.() ? o.completedAt.toDate() : null;
+          const defVal = existing ? toLocalInput(existing) : "";
+
+          const s = prompt(
+            "Isi waktu selesai (format: YYYY-MM-DDTHH:mm)\nContoh: 2026-02-08T14:30",
+            defVal
+          );
+          if(!s) return;
+
+          const dt = new Date(s);
+          if (Number.isNaN(dt.getTime())){
+            alert("Format tanggal tidak valid.");
+            return;
+          }
+
+          await updateDoc(doc(db,"orders", id), {
+            status: "DONE",
+            completedAt: Timestamp.fromDate(dt)
+          });
+        } catch(e){
+          alert("Gagal edit waktu selesai: " + (e?.message || e));
+        }
+      };
+    });
+
+    // ✅ Clear completedAt (tanpa ubah status)
+    tbody.querySelectorAll("button[data-clear]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        try{
+          const id = btn.getAttribute("data-clear");
+          await updateDoc(doc(db,"orders", id), { completedAt: null });
+        } catch(e){
+          alert("Gagal clear waktu selesai: " + (e?.message || e));
         }
       };
     });
