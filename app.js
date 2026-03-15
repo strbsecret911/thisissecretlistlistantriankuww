@@ -96,7 +96,6 @@ function makePager(total, page, pageSize){
 
 function pad2(n){ return String(n).padStart(2,"0"); }
 function toLocalInput(dt){
-  // datetime-local: YYYY-MM-DDTHH:mm
   return `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
 }
 
@@ -156,7 +155,7 @@ function calcSummaryFromData(list){
 /* =========================
    BACKUP HELPERS (CSV)
 ========================= */
-function monthToRange(monthStr){ // "2025-12"
+function monthToRange(monthStr){
   const [y, m] = monthStr.split("-").map(x=>parseInt(x,10));
   const start = new Date(y, m-1, 1, 0, 0, 0);
   const end = new Date(y, m, 1, 0, 0, 0);
@@ -199,7 +198,7 @@ async function downloadMonthlyCSV(monthStr){
   const rows = [];
   rows.push(["No","Nominal","Kategori","Status","Waktu Input","Waktu Selesai"].map(escapeCSV).join(","));
 
-  let no = snap.size; // biar nomor terbalik juga
+  let no = snap.size;
   snap.forEach(docSnap=>{
     const o = docSnap.data();
     const s = STATUS.find(x=>x.v===o.status) || {label:(o.status||"-")};
@@ -222,13 +221,11 @@ async function downloadMonthlyCSV(monthStr){
 
 /* =========================
    RESET HELPERS
-   - hapus semua doc di orders (batch 500)
 ========================= */
 async function resetAllOrders(){
   const ok = confirm("Yakin mau RESET antrian?\n\nIni akan menghapus SEMUA data di collection 'orders' dan tidak bisa dibatalkan.");
   if(!ok) return;
 
-  // safety confirm kedua
   const ok2 = confirm("Konfirmasi lagi: Hapus SEMUA order? Klik OK untuk lanjut.");
   if(!ok2) return;
 
@@ -264,7 +261,6 @@ function renderPublic(){
             <th>Nominal</th>
             <th>Kategori</th>
             <th>Status</th>
-            <th>Waktu Input</th>
             <th>Waktu Selesai</th>
           </tr>
         </thead>
@@ -326,7 +322,6 @@ function renderPublic(){
     const allDocs = [];
     snap.forEach(d => allDocs.push(d));
 
-    // SUMMARY global
     const allData = allDocs.map(d => d.data());
     const summary = calcSummaryFromData(allData);
     sumTotal.textContent = formatID(summary.total);
@@ -336,7 +331,6 @@ function renderPublic(){
     sumRobuxDone.textContent = formatID(summary.robuxDone);
     sumHeartDiamondDone.textContent = formatID(summary.heartDiamondDone);
 
-    // PAGING
     const total = allDocs.length;
     const pager = makePager(total, publicPage, PAGE_SIZE);
     publicPage = pager.page;
@@ -355,7 +349,6 @@ function renderPublic(){
           <td>${o.amountLabel || "-"}</td>
           <td>${o.robuxType || "-"}</td>
           <td><span class="badge ${s.cls}">${s.label}</span></td>
-          <td>${fmtTime(o.createdAt)}</td>
           <td>${fmtTime(o.completedAt)}</td>
         </tr>
       `);
@@ -363,7 +356,7 @@ function renderPublic(){
 
     tbody.innerHTML = rows.length
       ? rows.join("")
-      : `<tr><td colspan="6" class="small">Belum ada order.</td></tr>`;
+      : `<tr><td colspan="5" class="small">Belum ada order.</td></tr>`;
 
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     pageInfo.textContent = `Page ${publicPage + 1} / ${totalPages}`;
@@ -423,7 +416,6 @@ function renderAdmin(){
 
   stopOrdersListener();
 
-  // default month = bulan sekarang
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
 
@@ -535,7 +527,6 @@ function renderAdmin(){
 
   document.getElementById("btnLogout").onclick = adminLogout;
 
-  // Backup + Reset handlers
   const monthPick = document.getElementById("monthPick");
   const btnDownload = document.getElementById("btnDownload");
   const btnReset = document.getElementById("btnReset");
@@ -566,7 +557,6 @@ function renderAdmin(){
     }
   };
 
-  // Add order controls
   const chkCustom = document.getElementById("chkCustom");
   const rowPreset = document.getElementById("rowPreset");
   const rowCustom = document.getElementById("rowCustom");
@@ -622,7 +612,6 @@ function renderAdmin(){
         robuxType,
         amountLabel,
         status: st,
-        // ✅ hanya isi completedAt kalau langsung DONE
         completedAt: st === "DONE" ? serverTimestamp() : null
       });
 
@@ -703,7 +692,6 @@ function renderAdmin(){
       ? rows.join("")
       : `<tr><td colspan="7" class="small">Belum ada order.</td></tr>`;
 
-    // ✅ Update status + completedAt logic
     tbody.querySelectorAll("button[data-id]").forEach(btn=>{
       btn.onclick = async ()=>{
         try {
@@ -712,7 +700,6 @@ function renderAdmin(){
 
           await updateDoc(doc(db,"orders", id), {
             status: st,
-            // ✅ completedAt hanya terisi kalau DONE
             completedAt: st === "DONE" ? serverTimestamp() : null
           });
         } catch (e) {
@@ -721,7 +708,6 @@ function renderAdmin(){
       };
     });
 
-    // ✅ Edit completedAt manual (sekalian set status DONE biar konsisten)
     tbody.querySelectorAll("button[data-edit]").forEach(btn=>{
       btn.onclick = async ()=>{
         try{
@@ -755,7 +741,6 @@ function renderAdmin(){
       };
     });
 
-    // ✅ Clear completedAt (tanpa ubah status)
     tbody.querySelectorAll("button[data-clear]").forEach(btn=>{
       btn.onclick = async ()=>{
         try{
@@ -809,7 +794,7 @@ onAuthStateChanged(auth, (u)=>{
 window.addEventListener("hashchange", async ()=>{
   const hash = location.hash || "#/";
   if (hash.startsWith("#/admin") && currentUser?.email !== ADMIN_EMAIL) {
-    await adminLogin(); // auto popup login kalau kamu buka /admin
+    await adminLogin();
   } else {
     route();
   }
